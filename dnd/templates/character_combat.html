@@ -1,0 +1,27 @@
+<table class="table">
+  <tbody>
+    <tr id="hp-row"
+       {% if character['damage'] > 0 %}
+       class="danger"
+       {% elif character['temp_hp'] < 0 %}
+       class="warning"
+       {% elif character['temp_hp'] > 0 %}
+       class="success"
+       {% endif %}
+    >
+      <td>Hit points:</td>
+      {% if editing_privileges %}
+      <td><a href="#" class="btn btn-default" role="button" data-toggle="collapse" data-parent="#form-group" data-target="#hp-form" id="hp-value">{{ character['hp'] }}</a></td>
+      {% else %}
+      <td>{{ character['hp'] }}</td>
+      {% endif %}
+    </tr>
+    {% if editing_privileges %}
+    <tr id="hp-form" class="collapse">
+      <td colspan="3" id="hp-form-content">
+        {% include 'character_hp_form.html' %}
+      </td>
+    </tr>
+    {% endif %}
+  </tbody>
+</table>

@@ -1,0 +1,89 @@
+<form data-async data-target="#prepared-spells-errors" action="/api/{{ character['_id'] }}/prepare_spell/rest/" method="POST" class="form-inline">
+  <div class="pull-right">
+    <button class="btn btn-success btn-xs" type="submit">Rest</button>
+  </div>
+</form>
+<h5>Prepared</h5>
+<div id="prepared-spells-errors"></div>
+<div class="well" id="prepared-spells">
+  {% include "character_prepared_spells.html" %}
+</div>
+
+Spell slots: <span id='spell-slots'>{% include 'character_spell_slots.html' %}</span>
+
+{% for circle in range(1, 7)|reverse %}
+{% for spell in character['spells'] if character['spells'][spell]['circle'] == circle %}
+<div class="panel panel-default">
+  <div class="panel-heading">
+    <form data-async data-target="#prepared-spells-errors" action="/api/{{ character['_id'] }}/prepare_spell/prepare/" method="POST" class="form-inline">
+      <input type="hidden" name="name" value="{{ spell }}">
+      <div class="pull-right">
+        <button class="btn btn-success btn-xs" type="submit">Prepare</button>
+      </div>
+    </form>
+    <h4 class="panel-title">
+        <a data-toggle="collapse" data-parent="#spell-accordion" href="#{{ spell|replace(' ', '-') }}-collapse">{{ spell|capitalize }}</a> <span class="label label-default">{{ spells[spell].circle|to_roman }}</span>
+    </h4>
+
+  </div>
+  <div id="{{ spell|replace(' ', '-') }}-collapse" class="panel-collapse collapse">
+    <div class="panel-body">
+      <table class="table">
+        <tr>
+          <td>Circle:</td>
+          <td>
+            {{ character['spells'][spell]['circle']|to_roman }}
+          </td>
+        </tr>
+        <tr>
+          <td>Sphere:</td>
+          <td>
+            {{ character['spells'][spell]['sphere'] }}
+          </td>
+        </tr>
+        <tr>
+          <td>Range:</td>
+          <td>
+            {{ character['spells'][spell]['range'] }}
+          </td>
+        </tr>
+        <tr>
+          <td>Area:</td>
+          <td>
+            {{ character['spells'][spell]['area'] }}
+          </td>
+        </tr>
+        <tr>
+          <td>Casting time:</td>
+          <td>
+            {{ character['spells'][spell]['casting_time'] }}
+          </td>
+        </tr>
+        <tr>
+          <td>Components:</td>
+          <td>
+            {{ character['spells'][spell]['components'] }}
+          </td>
+        </tr>
+        <tr>
+          <td>Duration:</td>
+          <td>
+            {{ character['spells'][spell]['duration'] }}
+          </td>
+        </tr>
+        {% if character['spells'][spell]['mechanics'] is not none %}
+        <tr>
+          <td>Mechanics:</td>
+          <td>
+            {{ character['spells'][spell]['mechanics'] }}
+          </td>
+        </tr>
+        {% endif %}
+      </table>
+      {{ character['spells'][spell]['description'] }}
+    </div>
+  </div>
+</div>
+{% endfor %}
+<hr />
+{% endfor %}

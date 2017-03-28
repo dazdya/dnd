@@ -1,0 +1,22 @@
+<div class="panel-group" id="prayer-accordion">
+  {% include 'character_prayers_display.html' %}
+</div>
+
+<button type="button" class="btn btn-default btn-block" data-toggle="collapse" data-target="#prayers-form">Edit</button>
+
+<div id="prayers-form" class="collapse well">
+  <form data-async data-target="#prayers-errors" action="/api/{{ character['_id'] }}/prayer/" method="POST" class="form-horizontal">
+    <div id="prayers-errors"></div>
+    {% for number in range(1, 4) %}
+    <div class="form-group">
+      <label for="sphere-{{ number }}">Sphere {{ number }}:</label>
+      <select class="form-control" name="{{ number }}" id="sphere-{{ number }}">
+        {% for sphere in prayer_spheres|sort if sphere != "all" %}
+        <option value="{{ sphere }}" {% if sphere in character['prayer_spheres'] %}selected{% endif %}>{{ sphere }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endfor %}
+    <button class="btn btn-default" type="submit">Submit</button>
+  </form>
+</div>

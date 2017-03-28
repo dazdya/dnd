@@ -1,18 +1,5 @@
 <div class="panel-group" id="skill-accordion">
-  {% for skill in character['skills'] %}
-  <div class="panel panel-default">
-    <div class="panel-heading">
-      <h4 class="panel-title">
-          <a data-toggle="collapse" data-parent="#skill-accordion" href="#{{ skill }}-collapse">{{ skill }}</a>
-      </h4>
-    </div>
-    <div id="{{ skill }}-collapse" class="panel-collapse collapse">
-      <div class="panel-body">
-        {{ character['skills'][skill]['description'] }}
-      </div>
-    </div>
-  </div>
-  {% endfor %}
+  {% include 'character_skills_display.html' %}
 </div>
 
 <button type="button" class="btn btn-default btn-block" data-toggle="collapse" data-target="#skills-form">Edit</button>
@@ -41,9 +28,19 @@
                     {% if skill in character['skills'] %}checked{% endif %}>
                   {{ skill|capitalize }}
                 </label>
-                <button type="button" class="btn btn-info btn-xs" data-toggle="collapse" data-target="#skill-info-{{ skill }}">?</button>
+                <button type="button" class="btn btn-info btn-xs" data-toggle="collapse" data-target="#skill-info-{{ skill|replace(' ', '-')|replace('(', '-')|replace(')', '-') }}">?</button>
               </div>
-              <div id="skill-info-{{ skill }}" class="collapse well">
+              <div id="skill-info-{{ skill|replace(' ', '-')|replace('(', '-')|replace(')', '-') }}" class="collapse well">
+                <table class="table">
+                  {% if skills[skill]['skill_check'] is not none %}
+                  <tr>
+                    <td>Skill check:</td>
+                    <td>
+                      {{ skills[skill]['skill_check']|join(' + ') }}
+                    </td>
+                  </tr>
+                  {% endif %}
+                </table>
                 {{ skills[skill]['description'] }}
               </div>
               {% endfor %}

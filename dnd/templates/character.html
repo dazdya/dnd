@@ -49,23 +49,30 @@
     <div id="general-panel" class="panel-collapse collapse">
       <div class="panel-body">
         {% include 'character_general.html' %}
+        <h4>Abilities</h4>
+        {% include 'character_abilities.html' %}
       </div>
-      <div class="panel-footer">Unspent class points: <span class="label {% if character['unspent_class_points'] < 0 %}label-danger{% else %}label-default{% endif %}" id="class-points">{{ character['unspent_class_points'] }}</span></div>
+      <div class="panel-footer">
+        Unspent ability points:
+        <span class="label {% if character['unspent_ability_points'] < 0 %}label-danger{% else %}label-default{% endif %}" id="ability-points">{{ character['unspent_ability_points'] }}</span>
+      </div>
     </div>
   </div>
 </div>
+
 <div class="panel-group">
   <div class="panel panel-default">
     <div class="panel-heading">
       <h4 class="panel-title">
-        <a data-toggle="collapse" class="btn btn-link btn-block" role="button" href="#abilities-panel">Abilities</a>
+        <a data-toggle="collapse" class="btn btn-link btn-block" role="button" href="#combat-panel">Combat</a>
       </h4>
     </div>
-    <div id="abilities-panel" class="panel-collapse collapse in">
+    <div id="combat-panel" class="panel-collapse collapse">
       <div class="panel-body">
-        {% include 'character_abilities.html' %}
+        {% include 'character_combat.html' %}
       </div>
-      <div class="panel-footer">Unspent ability points: <span class="label {% if character['unspent_ability_points'] < 0 %}label-danger{% else %}label-default{% endif %}" id="ability-points">{{ character['unspent_ability_points'] }}</span></div>
+      <div class="panel-footer">
+      </div>
     </div>
   </div>
 </div>
@@ -83,7 +90,7 @@
       <div class="panel-body">
         {% include 'character_skills.html' %}
       </div>
-      <div class="panel-footer">Unspent skill points: <span class="label {% if character['unspent_skill_points'] < 0 %}label-danger{% else %}label-default{% endif %}" id="skill-points">{{ character['unspent_skill_points'] }}</span></div>
+      <div class="panel-footer">Unspent skill slots: <span class="label {% if character['unspent_skill_slots'] < 0 %}label-danger{% else %}label-default{% endif %}" id="skill-slots">{{ character['unspent_skill_slots'] }}</span></div>
     </div>
   </div>
 </div>
@@ -96,8 +103,10 @@
       </h4>
     </div>
     <div id="prayer-panel" class="panel-collapse collapse">
-      <div class="panel-body">Panel Body</div>
-      <div class="panel-footer">Panel Footer</div>
+      <div class="panel-body">
+        {% include 'character_prayers.html' %}
+      </div>
+      <div class="panel-footer"></div>
     </div>
   </div>
 </div>
@@ -110,8 +119,11 @@
       </h4>
     </div>
     <div id="spells-panel" class="panel-collapse collapse">
-      <div class="panel-body">Panel Body</div>
-      <div class="panel-footer">Panel Footer</div>
+      <div class="panel-body">
+        {% include 'character_spells.html' %}
+      </div>
+      <div class="panel-footer">
+      </div>
     </div>
   </div>
 </div>
@@ -154,7 +166,9 @@
     </div>
     <div id="inventory-panel" class="panel-collapse collapse">
       <div class="panel-body">Panel Body</div>
-      <div class="panel-footer">Panel Footer</div>
+      <div class="panel-footer" id="coins">
+        {% include "character_coins.html" %}
+      </div>
     </div>
   </div>
 </div>

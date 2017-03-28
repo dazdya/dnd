@@ -1,4 +1,6 @@
 """Character tools."""
+import copy
+from collections import OrderedDict
 from pkg_resources import resource_stream, Requirement
 from markupsafe import escape
 from markdown import markdown
@@ -13,9 +15,19 @@ RACES = {race['name']: race for race in load_all(
     Loader=Loader) if race is not None}
 
 
-SKILLS = {skill['name']: skill for skill in load_all(
+SKILLS = {skill['name'].lower(): skill for skill in load_all(
     resource_stream(Requirement.parse('dnd'), 'dnd/config/skills.yaml'),
     Loader=Loader) if skill is not None}
+
+SPELLS = {spell['name'].lower(): spell for spell in load_all(
+    resource_stream(Requirement.parse('dnd'), 'dnd/config/spells.yaml'),
+    Loader=Loader) if spell is not None}
+
+PRAYERS = {prayer['name'].lower(): prayer for prayer in load_all(
+    resource_stream(Requirement.parse('dnd'), 'dnd/config/prayers.yaml'),
+    Loader=Loader) if prayer is not None}
+
+PRAYER_SPHERES = {PRAYERS[prayer]['sphere'] for prayer in PRAYERS}
 
 ABILITIES = [
     'strength',
@@ -26,9 +38,34 @@ ABILITIES = [
     'charisma',
     'perception']
 
+COINS = OrderedDict([
+    ('oros', 1),
+    ('dies', 24),
+    ('semanis', 24 * 6),
+    ('mensis', 24 * 6 * 5),
+    ('annum', 24 * 6 * 5 * 12)])
+
 CLASSES = {class_['name'].lower(): class_ for class_ in load_all(
     resource_stream(Requirement.parse('dnd'), 'dnd/config/classes.yaml'),
     Loader=Loader) if class_ is not None}
+
+def convert_coins(coins):
+    """
+    Convert oros into higher coins, or a dictionary of higher coins into oros.
+    """
+    if isinstance(coins, int):
+        result = {coin: 0 for coin in COINS}
+        for coin in reversed(COINS):
+            rest = coins % COINS[coin]
+            if rest != coins:
+                result[coin] = int((coins - rest) / COINS[coin])
+                coins = rest
+        return result
+    elif isinstance(coins, dict):
+        oros = 0
+        for coin in coins:
+            oros += COINS[coin] * coins[coin]
+        return int(oros)
 
 def calculate_stats(character):
     """Calculate and set characters statistics."""
@@ -39,6 +76,9 @@ def calculate_stats(character):
     _character_skills(character)
     _character_hit_points(character)
     _character_background(character)
+    _character_spells(character)
+    _character_prayers(character)
+    _character_money(character)
 
 def _character_level(character):
     xp = character.get('xp', 0)
@@ -51,12 +91,19 @@ def _character_level(character):
     character['level'] = level
 
 def _character_classes(character):
-    unspent_class_points = character['level']
     for class_ in CLASSES:
-        value = character.get(class_, 0)
-        unspent_class_points -= value
-        character[class_] = value
-    character['unspent_class_points'] = unspent_class_points
+        character[class_] = 0
+    classes = character.get('classes', [])
+    missing = character['level'] - len(classes)
+    default_class = 'fighter' if len(classes) == 0 else classes[0]
+    if missing > 0:
+        classes.extend([default_class] * missing)
+    elif missing < 0:
+        classes = classes[:character['level']]
+    character['classes'] = classes
+    for i, class_ in enumerate(classes):
+        if i < character['level']:
+            character[class_] += 1
 
 def _character_race(character):
     race_name = character.get('race_name', 'Truman')
@@ -100,40 +147,188 @@ def _character_abilities(character):
 
 def _character_skills(character):
     skill_names = character.get('skill_names', [])
-    class_skill_points = 0
+    class_skill_slots = 0
     for class_ in CLASSES:
-        class_skill_points += CLASSES[class_]['skill_slots'] * character[class_]
-    skill_points = 5 + class_skill_points + character['intelligence_modifier']
+        class_skill_slots += CLASSES[class_]['skill_slots'] * character[class_]
+    skill_slots = 5 + class_skill_slots + character['intelligence_modifier']
     character['skills'] = {}
     if 'skills' in character['race']['bonus']:
-        skill_points += character['race']['bonus']['skills']
+        skill_slots += character['race']['bonus']['skills']
     for skill in skill_names:
+        skill = skill.lower()
         group = SKILLS[skill]['group']
         if group == 'all':
-            skill_points -= 1
+            skill_slots -= 1
         elif group in character and character[group] > 0:
-            skill_points -= 1
+            skill_slots -= 1
         elif group == 'magic' and (
                 character['warlock'] > 0 or
                 character['priest'] > 0 or
                 character['wizard'] > 0):
-            skill_points -= 1
+            skill_slots -= 1
         else:
-            skill_points -= 2
+            skill_slots -= 2
         if skill in SKILLS:
-            character['skills'][skill] = SKILLS[skill]
-    character['unspent_skill_points'] = skill_points
+            character['skills'][skill] = copy.deepcopy(SKILLS[skill])
+            if SKILLS[skill]['skill_check'] is None:
+                character['skills'][skill]['skill_check_text'] = '-'
+                character['skills'][skill]['skill_check_value'] = None
+                continue
+            character['skills'][skill]['skill_check_text'] = ' + '.join([
+                str(element) if not str(element).endswith(
+                    '_modifier') else "[{}]".format(
+                        element[0:-9]) for element in SKILLS[skill]['skill_check']])
+            character['skills'][skill]['skill_check_value'] = sum([
+                character[element]  if isinstance(
+                    element,
+                    str) else element for element in SKILLS[skill]['skill_check']])
+    character['unspent_skill_slots'] = skill_slots
+
+def _character_spells(character):
+    spell_names = character.get('spell_names', [])
+    character['spells'] = {}
+    for spell in spell_names:
+        spell = spell.lower()
+        if spell in SPELLS:
+            character['spells'][spell] = copy.deepcopy(SPELLS[spell])
+    spell_slots = (
+        tuple(),
+        (2,),
+        (2, 1),
+        (3, 1),
+        (3, 2),
+        (3, 2, 1),
+        (4, 2, 1),
+        (4, 3, 1),
+        (4, 3, 2),
+        (4, 3, 2, 1),
+        (5, 3, 2, 1),
+        (5, 4, 2, 1),
+        (5, 4, 3, 1),
+        (5, 4, 3, 2),
+        (5, 4, 3, 2, 1),
+        (6, 4, 3, 2, 1),
+        (6, 5, 3, 2, 1),
+        (6, 5, 4, 2, 1),
+        (6, 5, 4, 3, 1),
+        (6, 5, 4, 3, 2),
+        (6, 5, 4, 3, 2, 1))
+    character['spell_slots'] = spell_slots[character['wizard']]
+    character['invalid_prepared_spells'] = character.get(
+        'invalid_prepared_spells', 0)
+    leftover_spell_slots = list(character['spell_slots'])
+    prepared_spells = character.get('prepared_spells', {})
+    character['prepared_spells'] = prepared_spells
+    for spell in prepared_spells:
+        if SPELLS[spell]['circle'] > len(leftover_spell_slots):
+            character['invalid_prepared_spells'] += prepared_spells[spell]['prepared']
+            continue
+        leftover_spell_slots[SPELLS[spell]['circle'] - 1] -= prepared_spells[spell]['prepared']
+    debt_stack = []
+    for i in range(len(leftover_spell_slots)):
+        if leftover_spell_slots[i] < 0:
+            debt_stack.append([i, leftover_spell_slots[i]])
+        elif leftover_spell_slots[i] > 0 and len(debt_stack) > 0:
+            overflow_room = leftover_spell_slots[i]
+            for debt in debt_stack:
+                if abs(debt[1]) >= overflow_room:
+                    debt[1] += overflow_room
+                    leftover_spell_slots[i] = 0
+                    break
+                else:
+                    leftover_spell_slots[i] += debt[1]
+                    debt[1] = 0
+    for debt in debt_stack:
+        leftover_spell_slots[debt[0]] = debt[1]
+    character['leftover_spell_slots'] = leftover_spell_slots
+
+def _character_prayers(character):
+    prayer_names = set(character.get('prayer_names', []))
+    spheres = set(character.get('prayer_spheres', {'all'}))
+    prayer_slots = (
+        tuple(),
+        (1,),
+        (2,),
+        (2, 1),
+        (2, 2),
+        (3, 3),
+        (3, 3, 1),
+        (4, 3, 2),
+        (4, 3, 2, 1),
+        (4, 4, 2, 2),
+        (5, 4, 3, 3),
+        (5, 4, 3, 3, 1),
+        (5, 4, 4, 3, 2),
+        (5, 5, 4, 3, 2, 1),
+        (5, 5, 4, 4, 2, 2),
+        (5, 5, 5, 4, 3, 3),
+        (5, 5, 5, 4, 3, 3, 1),
+        (5, 5, 5, 4, 4, 3, 1),
+        (5, 5, 5, 5, 4, 3, 1),
+        (5, 5, 5, 5, 5, 4, 1),
+        (5, 5, 5, 5, 5, 5, 2))
+    character['prayer_slots'] = list(prayer_slots[character['priest']])
+    if character['priest'] > 0:
+        character['prayer_slots'][-1] += character['wisdom_modifier']
+    for prayer in PRAYERS:
+        if PRAYERS[prayer]['sphere'] in spheres and \
+                PRAYERS[prayer]['circle'] <= len(character['prayer_slots']):
+            prayer_names.add(prayer)
+    character['prayers'] = {}
+    for prayer in prayer_names:
+        prayer = prayer.lower()
+        if prayer in PRAYERS:
+            character['prayers'][prayer] = copy.deepcopy(PRAYERS[prayer])
+    character['invalid_prepared_prayers'] = character.get(
+        'invalid_prepared_prayers', 0)
+    leftover_prayer_slots = copy.copy(character['prayer_slots'])
+    prepared_prayers = character.get('prepared_prayers', {})
+    character['prepared_prayers'] = prepared_prayers
+    for prayer in prepared_prayers:
+        if PRAYERS[prayer]['circle'] > len(leftover_prayer_slots):
+            character['invalid_prepared_prayers'] += prepared_prayers[prayer]['prepared']
+            continue
+        leftover_prayer_slots[PRAYERS[prayer]['circle'] - 1] -= prepared_prayers[prayer]['prepared']
+    debt_stack = []
+    for i in range(len(leftover_prayer_slots)):
+        if leftover_prayer_slots[i] < 0:
+            debt_stack.append([i, leftover_prayer_slots[i]])
+        elif leftover_prayer_slots[i] > 0 and len(debt_stack) > 0:
+            overflow_room = leftover_prayer_slots[i]
+            for debt in debt_stack:
+                if abs(debt[1]) >= overflow_room:
+                    debt[1] += overflow_room
+                    leftover_prayer_slots[i] = 0
+                    break
+                else:
+                    leftover_prayer_slots[i] += debt[1]
+                    debt[1] = 0
+    for debt in debt_stack:
+        leftover_prayer_slots[debt[0]] = debt[1]
+    character['leftover_prayer_slots'] = leftover_prayer_slots
 
 def _character_hit_points(character):
-    max_hp = character.get('max_hp', 1)
-    if max_hp < 1:
-        max_hp = 1
+    per_level = character.get(
+        'hitpoints_per_level',
+        [0])
+    per_level[0] = CLASSES[character['classes'][0]]['hitdie']
+    missing = character['level'] - len(per_level)
+    if missing > 0:
+        per_level.extend([1] * missing)
+    elif missing < 0:
+        per_level = per_level[:character['level']]
+    character['hitpoints_per_level'] = per_level
+    max_hp = sum(per_level) + character['constitution_modifier'] * character['level']
     character['max_hp'] = max_hp
     temp_hp = character.get('temp_hp', 0)
     character['temp_hp'] = temp_hp
     damage = character.get('damage', 0)
     character['damage'] = damage
     character['hp'] = max_hp + temp_hp - damage
+
+def _character_money(character):
+    character['oros'] = character.get('oros', 0)
+    character['coins'] = convert_coins(character['oros'])
 
 def _character_background(character):
     character['appearance_safe'] = markdown(escape(
